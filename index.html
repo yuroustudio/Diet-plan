@@ -1136,6 +1136,12 @@
   function computeStreak(){
     var count = 0;
     var d = new Date();
+    // Today hasn't been logged yet (e.g. first thing in the morning) — that
+    // shouldn't drop an existing streak to 0, so give today a grace period
+    // and start counting from yesterday instead.
+    if(!(entries[dateKey(d)] && entries[dateKey(d)].length > 0)){
+      d.setDate(d.getDate()-1);
+    }
     while(true){
       var key = dateKey(d);
       var hasLog = entries[key] && entries[key].length > 0;
@@ -1703,6 +1709,23 @@
   renderToday();
   renderTrend();
   renderLog();
+
+  // If the page is left open across midnight (or a PWA is resumed the next
+  // day), nothing else re-renders on its own — so poll for the date changing
+  // and also re-check immediately whenever the tab/app regains focus.
+  var lastKnownDay = todayKey();
+  function refreshIfDayChanged(){
+    var nowKey = todayKey();
+    if(nowKey !== lastKnownDay){
+      lastKnownDay = nowKey;
+      renderToday();
+      renderLog();
+    }
+  }
+  setInterval(refreshIfDayChanged, 60000);
+  document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState === "visible") refreshIfDayChanged();
+  });
 
   if("serviceWorker" in navigator){
     window.addEventListener("load", function(){
